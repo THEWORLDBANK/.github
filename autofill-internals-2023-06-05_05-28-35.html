@@ -1,0 +1,340 @@
+<html><head>
+<!--
+Copyright 2019 The Chromium Authors
+Use of this source code is governed by a BSD-style license that can be
+found in the LICENSE file.
+-->
+<meta charset="utf-8">
+<script type="module" src="autofill_and_password_manager_internals.js"></script>
+<link rel="stylesheet" href="chrome://resources/css/chrome_shared.css">
+<!--
+  The style sheets are inlined to get a prettier export if the user presses
+  Ctrl/Cmd + S to save the site or presses the download button.
+-->
+<style>
+html {
+  scroll-behavior: smooth;
+}
+
+.sticky-bar {
+  background-color: white;
+  border-bottom: 1px solid black;
+  color: black;
+  overflow: auto;
+  padding-bottom: 1.5ex;
+  position: sticky;
+  top: 0;
+}
+
+#control-panel {
+  display: block;
+  font-size: 120%;
+  line-height: calc(120% + 2ex);
+  padding: 1ex;
+}
+
+#control-panel label {
+  padding-inline-end: 1em;
+  white-space: nowrap;
+}
+
+.fake-button {
+  background-color: lightgray;
+  border: 1px solid black;
+  cursor: pointer;
+  margin-inline-end: 1em;
+  padding: .5ex;
+  white-space: nowrap;
+}
+
+#logging-note {
+  font-style: italic;
+}
+
+#logging-note-incognito {
+  font-style: italic;
+}
+
+/* Initially, nothing is visible, to avoid flicker. */
+#log-entries,
+#logging-note,
+#logging-note-incognito {
+  display: none;
+}
+
+/* Visibility settings for non-Incognito tabs. */
+[data-incognito=false] #log-entries,
+[data-incognito=false] #logging-note {
+  display: block;
+}
+
+/* Visibility settings for Incognito tabs. */
+[data-incognito=true] #logging-note-incognito {
+  display: block;
+}
+
+#version-info {
+  margin: 3px;
+  padding: 3px;
+}
+
+.version {
+  font-family: monospace;
+  max-width: 430px;
+  padding-inline-start: 5px;
+  vertical-align: top;
+  word-break: break-word;
+}
+
+.label {
+  font-family: monospace;
+  font-weight: 200;
+  vertical-align: top;
+}
+
+.log-entry,
+.marker {
+  padding: 3px;
+}
+
+.marker {
+  background-color: red;
+  font-size: 200%;
+  overflow-wrap: break-word;
+  white-space: normal;
+  word-wrap: break-word;
+}
+
+.marker::before {
+  content: 'Position marked: ';
+}
+
+/*
+ * Colors can be taken from
+ * https://material.io/design/color/#tools-for-picking-colors
+ * Pick the rows of entries labeled with 100
+ */
+
+.log-entry[scope='Context'] {
+  background-color: #F5F5F5;
+}
+
+.log-entry[scope='Parsing'] {
+  background-color: #FFECB3;
+}
+
+.log-entry[scope='AbortParsing'] {
+  background-color: #FFCDD2;
+}
+
+.log-entry[scope='Filling'] {
+  background-color: #D1C4E9;
+}
+
+.log-entry[scope='Submission'] {
+  background-color: #BBDEFB;
+}
+
+.log-entry[scope='AutofillServer'] {
+  background-color: #D7CCC8;
+}
+
+.log-entry[scope='Metrics'] {
+  background-color: #B2EBF2;
+}
+
+.log-entry[scope='AddressProfileFormImport'] {
+  background-color: #BFFBF2;
+}
+
+.log-entry[scope='CreditCardUploadStatus'] {
+  background-color: #4DB6AC;
+}
+
+.log-entry[scope='CardUploadDecision'] {
+  background-color: #4DD0E1;
+}
+
+.log-entry[scope='Rationalization'] {
+  background-color: #F8BBD0;
+}
+
+.log-entry[scope='WebsiteModifiedFieldValue'] {
+  background-color: #FF7C5D;
+}
+
+.log-entry[scope='FastCheckout'] {
+  background-color: #5dffbe;
+}
+
+/*
+ * Checkboxes add/remove hide-<Scope> classes to the #log-entries. Hiding of the
+ * relevant <div>'s and adjacent <hr>'s is implemented by these classes.
+ */
+
+.hide-Context .log-entry[scope='Context'],
+.hide-Context .log-entry[scope='Context'] + hr {
+  display: none;
+}
+
+.hide-Parsing .log-entry[scope='Parsing'],
+.hide-Parsing .log-entry[scope='Parsing'] + hr {
+  display: none;
+}
+
+.hide-AbortParsing .log-entry[scope='AbortParsing'],
+.hide-AbortParsing .log-entry[scope='AbortParsing'] + hr {
+  display: none;
+}
+
+.hide-Filling .log-entry[scope='Filling'],
+.hide-Filling .log-entry[scope='Filling'] + hr {
+  display: none;
+}
+
+.hide-Submission .log-entry[scope='Submission'],
+.hide-Submission .log-entry[scope='Submission'] + hr {
+  display: none;
+}
+
+.hide-AutofillServer .log-entry[scope='AutofillServer'],
+.hide-AutofillServer .log-entry[scope='AutofillServer'] + hr {
+  display: none;
+}
+
+.hide-Metrics .log-entry[scope='Metrics'],
+.hide-Metrics .log-entry[scope='Metrics'] + hr {
+  display: none;
+}
+
+.hide-AddressProfileFormImport .log-entry[scope='AddressProfileFormImport'],
+.hide-AddressProfileFormImport .log-entry[scope='AddressProfileFormImport'] + hr {
+  display: none;
+}
+
+.hide-CreditCardUploadStatus .log-entry[scope='CreditCardUploadStatus'],
+.hide-CreditCardUploadStatus .log-entry[scope='CreditCardUploadStatus'] + hr {
+  display: none;
+}
+
+.hide-CardUploadDecision .log-entry[scope='CardUploadDecision'],
+.hide-CardUploadDecision .log-entry[scope='CardUploadDecision'] + hr {
+  display: none;
+}
+
+.hide-WebsiteModifiedFieldValue .log-entry[scope=WebsiteModifiedFieldValue],
+.hide-WebsiteModifiedFieldValue .log-entry[scope=WebsiteModifiedFieldValue] + hr {
+  display: none;
+}
+
+.hide-FastCheckout .log-entry[scope=FastCheckout],
+.hide-FastCheckout .log-entry[scope=FastCheckout] + hr {
+  display: none;
+}
+
+.preserve-white-space {
+  white-space: pre-wrap;
+}
+
+.form {
+  border: 1px black solid;
+  margin: 3px;
+  padding: 3px;
+}
+
+.form td {
+  vertical-align: text-top;
+}
+
+.profile_import_from_form_section {
+  border: 1px black solid;
+  margin: 3px;
+  padding: 3px;
+}
+
+.profile_import_from_form_section td {
+  vertical-align: text-top;
+}
+
+.country_data {
+  border: 1px black solid;
+  margin: 3px;
+  padding: 3px;
+}
+
+.country_data td {
+  vertical-align: text-top;
+}
+
+.modal-dialog {
+  background-color: rgb(255, 255, 255);
+  border: 1px solid rgb(0, 0, 0);
+  display: block;
+  height: 100px;
+  left: 10%;
+  overflow: auto;
+  position: fixed;
+  right: 10%;
+  top: 10%;
+  width: 80%;
+  z-index: 1;
+}
+
+.modal-dialog-content {
+  padding: 20px;
+}
+
+.modal-dialog-close-button {
+  bottom: 20px;
+  position: absolute;
+  right: 20px;
+}
+</style>
+<title>Autofill Internals</title></head>
+<body data-incognito="false">
+<div class="sticky-bar">
+  <h1 id="h1-title">Autofill Internals</h1>
+  <div id="control-panel">
+    <span id="marker-fake-button" class="fake-button">Add Marker</span>
+    <label><input type="checkbox" id="enable-autoscroll" checked=""> Enable autoscroll</label>
+    <span id="checkbox-placeholder"><label><input type="checkbox" id="checkbox-Context"> Context</label><label><input type="checkbox" id="checkbox-Parsing"> Parsing</label><label><input type="checkbox" id="checkbox-AbortParsing"> AbortParsing</label><label><input type="checkbox" id="checkbox-Filling"> Filling</label><label><input type="checkbox" id="checkbox-Submission"> Submission</label><label><input type="checkbox" id="checkbox-AutofillServer"> AutofillServer</label><label><input type="checkbox" id="checkbox-Metrics"> Metrics</label><label><input type="checkbox" id="checkbox-AddressProfileFormImport"> AddressProfileFormImport</label><label><input type="checkbox" id="checkbox-WebsiteModifiedFieldValue"> WebsiteModifiedFieldValue</label><label><input type="checkbox" id="checkbox-FastCheckout"> FastCheckout</label></span>
+    <span id="reset-cache-fake-button" class="fake-button" style="display: inline;">Reset Cache</span>
+    <span id="download-fake-button" class="fake-button">Download Log</span>
+    <label><input type="checkbox" id="currently-recording" checked=""> Record new events</label>
+    <label><input type="checkbox" id="automatically-stop-recording" checked=""> Automatically stop recording in <span id="stop-recording-time">3:14</span></label>
+    <span id="reset-upm-eviction-fake-button" class="fake-button" style="display: none">Reset UPM eviction</span>
+  </div>
+</div>
+<div id="logging-note">Captured autofill logs are listed below. Logs are cleared and no longer       captured when all autofill-internals pages are closed.</div>
+<div id="logging-note-incognito">Captured autofill logs are not available in Incognito.</div>
+<div id="version-info">
+  <table>
+    <tbody><tr>
+      <td class="label">Version:</td>
+      <td class="version"><span>112.0.5615.135</span>
+        (<span>official</span>)
+        <span></span></td>
+    </tr>
+    <tr>
+      <td class="label">Revision:</td>
+      <td class="version"><span>eada1d583c10d5dd34196e299391e6c8e65d2b19-refs/branch-heads/5615@{#1279}</span></td>
+    </tr>
+    <tr>
+      <td class="label">User Agent:</td>
+      <td class="version"><span>Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/112.0.0.0 Mobile Safari/537.36</span></td>
+    </tr>
+    <tr>
+      <td class="label">App Locale:</td>
+      <td class="version"><span>id</span></td>
+    </tr>
+    <tr>
+      <td class="label">Variations:</td>
+      <td class="version" id="variations-list"><div>df319cb2-33c3eba5<br>f0f9a5e8-28ad44a<br>dbd0f150-ca7d8d80<br>e5e1bc80-2bd7b10a<br>6d0ebf1b-7780af95<br>3e7d7783-377be55a<br>2fcbfa14-377be55a<br>3dd63e02-ca7d8d80<br>e81a9d4f-28ad44a<br>3e6ca8ad-377be55a<br>aa21b4f1-377be55a<br>d327bc9c-ca7d8d80<br>eddd0d82-107edff7<br>53083524-377be55a<br>89a16501-ca7d8d80<br>41b73fe3-ca7d8d80<br>afb5d7b8-ca7d8d80<br>3095aa95-3f4a17df<br>9338e1c5-fc5c7322<br>335c4673-ca7d8d80<br>d0e8aa45-33c3eba5<br>d2e8e6e4-ca7d8d80<br>d9a54c17-396a57df<br>d3b1bcd1-377be55a<br>250dda8b-8924bcae<br>5be458ba-63fc2c36<br>d9efa735-377be55a<br>3458307a-12ede6a2<br>84ef82df-ca7d8d80<br>cbc04857-377be55a<br>7eb2f74d-ca7d8d80<br>363012bc-377be55a<br>81b1a2c3-ca7d8d80<br>d41079e9-ca7d8d80<br>dfa02032-4598bb71<br>a582a1b8-9f247c7b<br>a5b9261b-219af806<br>d6b12c5a-bb80bdda<br>61df98b6-ca7d8d80<br>292933f4-c33e4beb<br>d92d97b4-12ede6a2<br>ab38a1c1-d68e3d87<br>a77fbbf4-377be55a<br>dde50ff5-ca7d8d80<br>62c71f3-beec80b6<br>6cd75d26-ed7af7b3<br>6fe76378-377be55a<br>3fd33f16-ca7d8d80<br>4e726f25-377be55a<br>eac1a994-377be55a<br>af8f17f-377be55a<br>abf5aad6-5bd15e37<br>b4d9badf-40e2b871<br>8835ae81-e6e520d9<br>906834f5-9da5e2a0<br>829fa6ed-ca7d8d80<br>f782a8be-ca7d8d80<br>389bdb13-205b8b3a<br>17cd3426-ca7d8d80<br>f7587c0d-1f8c5973<br>5e3a236d-4113a79e<br>8bccc03b-ca7d8d80<br>83b371a5-377be55a<br>5349039a-377be55a<br>fcb2864d-ca7d8d80<br>8b343643-a2746ce8<br>8500acb0-bb536f2b<br>75ffb03a-ca7d8d80<br>b3c54bb3-a058b5d3<br>bde7927d-377be55a<br>99c32967-262f0e41<br>ca12356a-8d64322<br>6378367f-377be55a<br>59a12fbe-b407b812<br>b3f9e06f-ca7d8d80<br>b16eab85-ca7d8d80<br>77b7ea96-1d34a889<br>45a2f2f-ca7d8d80<br>e3fd1192-377be55a<br>c5dfd685-ca7d8d80<br>a0ddd71f-377be55a<br>d7d493f4-ca7d8d80<br>15d3083e-5ce60213<br>1edcddf4-f726f89c<br>1013f951-377be55a<br>cee5cf51-1f8c5973<br>11b90bf1-377be55a<br>648cc0e9-ca7d8d80<br>8ee7d10d-377be55a<br>65bbdcad-377be55a<br>83ec04b1-169528d6<br>9635fb98-377be55a<br>3e99ae8f-12ede6a2<br>3f2823d1-ca7d8d80<br>156d4956-9c84ad9b<br>f0682056-ca7d8d80<br>5851a53a-20131bcc<br>6f7ca3b0-56cbdef7<br>94f1fa38-ca7d8d80<br>22b29f63-377be55a<br>f41074f2-2eda6922<br>b6377a55-ca7d8d80<br>494d8760-52325d43<br>7b2873c2-828652ec<br>3ac60855-486e2a9c<br>f48c01d3-51bcf1c8<br>63dcb6a3-5471493d<br>e706e746-861c267<br>f296190c-477de798<br>4442aae2-6e3b1976<br>f690cf64-7158671e<br>ed1d377-e1cc0f14<br>75f0f0a0-e1cc0f14<br>710c3f90-a5822863<br>e2b18481-75cb33fc<br>e7e71889-4ad60575<br>57675af7-377be55a<br>ec21b181-ca7d8d80<br>1d0518a-377be55a<br>76415c5-12ede6a2<br>595f5eb0-ca7d8d80<br>f9f9ca72-ed148f65<br>f6e6ff36-bd94ac14<br>42021322-35d15803<br>514700c0-aa1418ad<br>a8220f92-4d2fac87<br>66b74ead-ca7d8d80<br>e9ed3e6a-377be55a<br>62d30eed-377be55a<br>c881baf0-28ad44a<br></div></td>
+    </tr>
+  </tbody></table>
+</div>
+<div id="log-entries" class="">
+</div>
+
+
+</body></html>
